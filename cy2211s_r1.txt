@@ -1,0 +1,10 @@
+python -B upd.py 0 Seq1
+python -B csp.py 0 5 dump 80 80
+python -B csp.py 0 5 otp 900
+
+python -B csp.py 0 5 upload ..\FirmwareProject\cy2211s_r1\Release\cy2311.1.memh 1
+
+python -B csp.py 0 5 otp 900
+
+python -B csp.py 0 5 iowr F7 01 01 01
+

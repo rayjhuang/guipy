@@ -152,11 +152,11 @@ class RegEntry(NumEntry):
         adr = r*16+c+128*me.parent.page
         bus = me.parent.parent.w['b_frame'].v.get()
         print '0x%02X : %s -> %02X' % (adr,me.r_old,n_new)
-        if bus=='i2c':
+        if bus=='i':
             ii.i2cw (adr,[n_new])
             r_dat = ii.i2cr (adr,1)
         else:
-            cc.pMode0_9.set(ii.TRUE if bus=='1109' else ii.FALSE)
+            cc.pMode0_9.set(ii.TRUE if bus=='9' else ii.FALSE)
             cc.cspw (adr,0,[n_new])
             r_dat = \
             cc.cspr (adr,0,0)
@@ -248,7 +248,7 @@ class MnBtFrame(Frame):
         pga = me.parent.w['r_frame'].page *128 # page address
         row = len(me.parent.w['r_frame'].w['adr'])
         r_dat = []
-        if bus=='i2c':
+        if bus=='i':
             try:
                 ii.rI2Ctl.msk (ii.I2CINC_ENA_MSK0(),ii.I2CINC_ENA_MSK1()) # inc
                 r_dat = ii.i2cr (pga,0x80)
@@ -264,31 +264,28 @@ class MnBtFrame(Frame):
 
     def click_nvm(me):
         bus = me.parent.w['b_frame'].v.get()
-        if bus=='i2c':
+        if bus=='i':
             ofs = ii.i2cr (ii.OFS,1)[0]; otpadr  = ofs
-            dec = ii.i2cr (ii.DEC,1)[0]; otpadr += 256*(dec&0x7f)
+            dec = ii.i2cr (ii.DEC,1)[0]; otpadr += 256*(dec&0x0f)
             ii.otp_form (otpadr, int(me.w['ocnt'].v.get()), ii.i2c_sfrw1, ii.i2c_nvmset, ii.i2c_nvmrx)
         else:
-            if bus=='1109':
+            if bus=='9':
                 cc.pMode0_9.set(ii.TRUE)
                 otpadr = cc.cspr (0xf0,0,0)[0]
             else:
                 (ofs,dec) = cc.cspr (ii.OFS,1,0)
-                if bus=='1108': otpadr = 256*(dec&0x0f) + ofs
-                if bus=='1110': otpadr = 256*(dec&0x1f) + ofs
-                if bus=='1112': otpadr = 256*(dec&0x7f) + ofs
+                if bus=='8': otpadr = 256*(dec&0x0f) + ofs
+                if bus=='0': otpadr = 256*(dec&0x1f) + ofs
             ii.otp_form (otpadr, int(me.w['ocnt'].v.get()), cc.csp_sfrw1, cc.csp_nvmset, cc.csp_nvmrx)
             cc.pMode0_9.set(ii.FALSE)
 
     def nvm_note(me):
         print 'NOTE: to update NVM, CPU must be held in advance'
         bus = me.parent.w['b_frame'].v.get()
-        if bus=='1112': print 'WARNING: works on CAN1112 FPGA via CC'
-        if bus=='1112': print 'WARNING: works on CAN1112 silicon via CC with 9.5V VPP'
-        if bus=='1110': print 'WARNING: to progran NVM of CAN1110 via CC'
-        if bus=='1108': print 'WARNING: works on CAN1108 FPGA via CC'
-        if bus=='1108': print 'WARNING: 7.5V VC1 works on CAN1108 silicon via CC'
-        if bus=='1109': print 'ERROR: CAN1109 not yet supported'
+        if bus=='0': print 'WARNING: to progran NVM of CAN1110 via CC'
+        if bus=='8': print 'WARNING: works on CAN1108 FPGA via CC'
+        if bus=='8': print 'WARNING: 7.5V VC1 works on CAN1108 silicon via CC'
+        if bus=='9': print 'ERROR: CAN1109 not yet supported'
         return bus
 
     def click_prog(me):
@@ -299,22 +296,24 @@ class MnBtFrame(Frame):
         print 'program NVM at 0x%04X:' % (oadr),
         for it in odat: print '%02X' % (it),
         print
-        if bus=='i2c': ii.i2c_prog (oadr,odat)
-        else:          cc.csp_prog (oadr,odat)
+        if bus=='i': ii.i2c_prog (oadr,odat)
+        if bus=='8': cc.csp_prog_1108 (oadr,odat)
+        if bus=='0': cc.csp_prog_1110 (oadr,odat)
 
     def click_comp(me):
         bus = me.nvm_note()
         fn = tkFileDialog.askopenfilename(filetypes=(('memory files','.memh'),('all files','.*')))
         if fn:
-            if bus=='i2c': ii.i2c_comp (fn)
-            else:          cc.csp_comp_faster (fn)
+            if bus=='8': cc.csp_comp (fn,0)
+            if bus=='0': cc.csp_comp_faster_1110 (fn)
 
     def click_load(me):
         bus = me.nvm_note()
         fn = tkFileDialog.askopenfilename(filetypes=(('memory files','.memh'),('all files','.*')))
         if fn:
-            if bus=='i2c': loaded = ii.i2c_load (fn)
-            else:          loaded = cc.csp_load_faster (fn)
+            if bus=='i': loaded = ii.i2c_load (fn)
+            if bus=='8': loaded = cc.csp_load (fn,0)
+            if bus=='0': loaded = cc.csp_load_faster_1110 (fn)
 #           if loaded:
 #               if len(fn)>20: me.w['file']['text'] = '...' + fn[-18:]
 #               else:          me.w['file']['text'] = fn
@@ -326,39 +325,29 @@ class BusFrame(Frame):
         Frame.__init__(me,parent,**kwargs)
         me.parent = parent
         me.v = StringVar()
-        me.v.set('i2c')
+        me.v.set('i')
         me.w = {}
         me.w['deva'] = DevaEntry(me,width=5,low=1,look='0x%02X',base=16,fg=shftcolor)
         me.w['freq'] = FreqEntry(me,width=5,low=1,top=999)
         Label(me,text="KHz").grid(row=0,column=3,padx=gap,sticky=W)
-#       Label(me,text="-> CAN1109").grid(row=1,column=1,columnspan=3,sticky=W)
-        Label(me,text="-> CAN1108").grid(row=1,column=1,columnspan=3,sticky=W)
-        Label(me,text="-> CAN1110").grid(row=2,column=1,columnspan=3,sticky=W)
-        Label(me,text="-> CAN1112").grid(row=3,column=1,columnspan=3,sticky=W)
+#       Label(me,text="-- CAN1109").grid(row=1,column=1,columnspan=3,sticky=W)
+        Label(me,text="-- CAN1110").grid(row=1,column=1,columnspan=3,sticky=W)
+        Label(me,text="-- CAN1108").grid(row=2,column=1,columnspan=3,sticky=W)
         me.w['deva'].v.set(me.w['deva'].look % ii.pDevAdr.v)
         me.w['deva'].grid(row=0,column=1,padx=gap)
         me.w['freq'].grid(row=0,column=2,padx=gap)
         BusModes = [
-            ("I2C",'i2c', 0),
-            ("CSP",'1108',1),
-            ("CSP",'1110',2),
-            ("CSP",'1112',3)]
+            ("I2C",'i',0),
+            ("CSP",'0',1),
+            ("CSP",'8',2)]
         for t,m,r in BusModes:
-            Radiobutton(me,text=t,variable=me.v,value=m,command=me.click_bus).grid(row=r,column=0,sticky=W)
-
-    def click_bus(me):
-        bus = me.parent.w['b_frame'].v.get()
-        print 'switch target to %s' % bus
-        if (bus=='i2c'):  ii.pTarget.set(ii.pDevInc.v) 
-        if (bus=='1108'): ii.pTarget.set(0) 
-        if (bus=='1110'): ii.pTarget.set(1) 
-        if (bus=='1112'): ii.pTarget.set(2) 
+            Radiobutton(me,text=t,variable=me.v,value=m).grid(row=r,column=0,sticky=W)
 
 class TxBtFrame(Frame):
     """TX buttons
             TX ORDRS can be clicked to change
     """
-    def __init__(me,parent,gap=3,ext=0,**kwargs):
+    def __init__(me,parent,gap=3,ext='0',**kwargs):
         Frame.__init__(me,parent,**kwargs)
         me.parent = parent
         me.w = {}
@@ -380,7 +369,7 @@ class TxBtFrame(Frame):
         me.w['qury'].pack(fill=X)
         me.w['ords'].pack()
         Label(me).pack() # space
-        if ext>1:
+        if ext>'1':
             me.w['ping'].pack(fill=X)
             me.w['srst'].pack(fill=X)
             me.w['svdm'].pack(fill=X)
@@ -406,7 +395,7 @@ class RxBtFrame(Frame):
         me.parent.w['r_frame'].w['reg'][3][11].ev_return(ev)
         me.update_rx0()
     def update_rx0 (me):
-        if me.parent.w['b_frame'].v.get()=='i2c' and \
+        if me.parent.w['b_frame'].v.get()=='i' and \
            me.parent.w['r_frame'].page==1:
             rx = int(me.parent.w['r_frame'].w['reg'][3][11].v.get(),16)
             for i in range(7):
@@ -490,7 +479,7 @@ class ExBtFrame(Frame):
             for r,c in me.parent.w['r_frame'].molist:
                 r_dat = []
                 addr = me.parent.w['r_frame'].page*128+r*16+c
-                if bus=='i2c':
+                if bus=='i':
                     try: r_dat = ii.i2cr(addr,1)
                     except: pass
                 else:
@@ -506,7 +495,7 @@ class ExBtFrame(Frame):
 
 
 class MainApplication(Frame):
-    def __init__(me, parent, extend=0, gap=3, *args, **kwargs):
+    def __init__(me, parent, extend='0', gap=3, *args, **kwargs):
         Frame.__init__(me, parent, *args, **kwargs)
         me.parent = parent
         me.w = {}
@@ -520,12 +509,12 @@ class MainApplication(Frame):
 
         me.w['r_frame'].grid(row=0,column=0,columnspan=7,padx=gap,pady=gap)
         me.w['m_frame'].grid(row=1,column=2,columnspan=5,padx=gap*3)
-        if extend>0: # for NVM/register read/write view
+        if extend>'0': # for NVM/register read/write view
             me.w['b_frame'].grid(row=2,column=1,columnspan=4,pady=gap*2)
-        if extend>1:
+        if extend>'1':
             me.w['t_frame'].grid(row=1,column=0,   rowspan=7,padx=gap*3)
             me.w['x_frame'].grid(row=2,column=5,columnspan=2,rowspan=7,pady=gap*2)
-        if extend>2: # full-function view
+        if extend>'2': # full-function view
             me.w['e_frame'].grid(row=3,column=1,columnspan=4,pady=gap)
             me.w['i_frame'].grid(row=9,column=0,columnspan=7,pady=gap)
 
@@ -541,7 +530,7 @@ class MainApplication(Frame):
 
     def cspr(me,addr,cnt,io):
         bus = me.w['b_frame'].v.get()
-        cc.pMode0_9.set(ii.TRUE if bus=='1109' else ii.FALSE)
+        cc.pMode0_9.set(ii.TRUE if bus=='9' else ii.FALSE)
         r_dat = cc.cspr(addr,cnt,io)
         cc.pMode0_9.set(ii.FALSE)
         return r_dat
@@ -563,20 +552,18 @@ class MainApplication(Frame):
 
 
 if __name__ == "__main__":
-### % python gui.py [I2C to CAN1108/10/12] [extend] [DevAddr]
-### % python gui.py 1 3 70
+### % python gui.py [CAN1110] [DevAddr] [extend]
+### % python gui.py 1 70 3
 #   ii.rTxCtl.d = ii.TRUE
 #   ii.rRxCtl.d = ii.TRUE
 #   ii.rI2Ctl.d = ii.TRUE
-    ii.pDevAdr.set(ii.s2int(ii.arg2s(3),16,ii.pDevAdr.v))
+    ii.pDevAdr.set(ii.s2int(ii.arg2s(2),16,ii.pDevAdr.v))
     print "I2C device 0x%02x" % ii.pDevAdr.v;
-
-    ii.pDevInc.set(ii.s2int(ii.arg2s(1),16,ii.pDevInc.v)) # default bridge
-    cc.pTarget.set(0) # non-CSP target (to I2C of course)
-    print "I2CCTL[0]: I2C_%s" % ('INC' if ii.pDevInc.v else 'NINC')
+    ii.pDevInc.set(ii.s2int(ii.arg2s(1),16,ii.pDevInc.v))
+    print "I2C auto-inc: %s" % ('INC' if ii.pDevInc.v else 'NINC')
 
     root = Tk()
-    app = MainApplication(root,extend=ii.s2int(ii.arg2s(2),10,3))
+    app = MainApplication(root,extend=ii.arg2s(3))
     app.pack(side="top", fill="both", expand=True)
     Frame(height=3).pack(fill=X) # space
 
@@ -600,11 +587,7 @@ if __name__ == "__main__":
         except:
             print "I2C not ready"
 
-    root.title("I2C-to-CAN11" + ( \
-               "12" if ii.pDevInc.v==2 else \
-               "10" if ii.pDevInc.v==1 else \
-               "08") + \
-               " GUI 20180313")
+    root.title("CAN1110 GUI 20161229")
     root.bind("<Alt-q>",lambda e:root.destroy())
     root.bind("<Escape>",lambda e:app.w['m_frame'].w['quit'].focus())
     root.mainloop()

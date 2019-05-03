@@ -1,0 +1,13 @@
+python -B csp.py 0 1 dump 80 80
+
+python -B csp.py 0 1 iowr BC 08
+python -B csp.py 0 1 otp  900
+
+python -B csp.py 0 1 proga 930  all_option
+python -B csp.py 0 1 progh 960  3E 38 08 03
+python -B csp.py 0 1 progh 970  2C 91 01 0A  2C D1 02 00  3C 1E DC C0
+
+python -B csp.py 0 1 otp  900
+python -B csp.py 0 1 otp  A20
+
+python -B csp.py 0 1 iowr F7 01 01 01

@@ -1,0 +1,13 @@
+python -B can11xx.py 3 dump 80 80
+
+python -B can11xx.py 3 write bc 8
+python -B can11xx.py 3 write e6 0
+python -B can11xx.py 3 write e7 0
+python -B can11xx.py 3 write ee 0
+python -B can11xx.py 3 write f6 0
+python -B can11xx.py 3 write de 3
+python -B can11xx.py 3 write d9 1
+
+python -B can11xx.py 3 dump 80 80
+
+python -B can11xx.py 3 write d4 1

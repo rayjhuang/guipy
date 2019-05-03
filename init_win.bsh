@@ -1,0 +1,9 @@
+
+    TOTALPHASEPATH=/cygdrive/y/tools/TotalPhase
+### TOTALPHASEPATH=D:\TotalPhase
+### PYTHONPATH=%TOTALPHASEPATH%\aardvark-api-windows-i686-v5.13\python
+
+    PYTHONPATH=$TOTALPHASEPATH/aardvark-api-windows-x86_64-v5.13/python
+
+    ls -l $PYTHONPATH
+
