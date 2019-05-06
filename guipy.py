@@ -12,7 +12,7 @@ class MainApplication (Frame):
         me.w['r_frame'].pack()
 
         me.w['b_frame'] = FrameBus(me, gap=gap)
-        me.w['b_frame'].pack()
+        me.w['b_frame'].pack(fill=X)
 
     def get_sfrmst (me):
         return me.w['b_frame'].get_sfrmst ()
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     root = Tk()
     app = MainApplication(root)
     app.pack(side="top", fill="both", expand=True)
-    Frame(height=3).pack(fill=X) # space
+    Frame(height=2).pack(fill=X) # space
 
     root.title("GUIPY" + \
                " v20190504")

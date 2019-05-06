@@ -25,8 +25,8 @@ class FrameBus (Frame):
             (me.busmode[0],'isp'),
             (me.busmode[1],'csp')]
         for t,m in MODES:
-            Radiobutton(me, textvariable=t, variable=me.bus, value=m, command=me.click_bus, \
-                            width=50, anchor=W).grid()
+            Radiobutton(me, textvariable=t, variable=me.bus, value=m, \
+                            command=me.click_bus, anchor=W).pack(fill=X)
 
         me.click_bus ()
 
