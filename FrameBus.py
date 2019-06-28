@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import cynpy.i2c as i2c
+import rapy.i2c as i2c
 import cynpy.canm0 as canm0
 import cynpy.sfrmst as sfrmst
 
